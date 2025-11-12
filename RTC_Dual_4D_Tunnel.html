@@ -1,0 +1,62 @@
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="generator" content="R package animation 2.8">
+	<title>Animations Using the R Language</title>
+	<link rel="stylesheet" href="css/reset.css" />
+	<link rel="stylesheet" href="css/styles.css" />
+	<link rel="stylesheet" href="css/scianimator.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.3/styles/github.min.css">
+
+	<script src="js/jquery-1.4.4.min.js"></script>
+	<script src="js/jquery.scianimator.min.js"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.3/highlight.min.js"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.3/languages/r.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script>
+
+</head>
+<body>
+
+	<div class="scianimator"><div id="Rplot" style="display: inline-block;"></div></div>
+	<div class="scianimator" style="width: 1200px; text-align: left"><pre><code class="r">## Animations generated in R version 4.5.1 (2025-06-13 ucrt) using the package animation
+library(animation)
+library(plot3D)
+for (i in seq_along(T_seq)) {
+    t <- T_seq[i]
+    psi_i <- A_i * sin(k_i * X + l_i * Y - omega_i * t)
+    psi_e <- A_e * sin(k_e * X + l_e * Y - omega_e * t + 
+        phi)
+    psi_r <- psi_i + psi_e + psi_i * psi_e
+    dpsi_r_dt <- -A_i * omega_i * cos(k_i * X + l_i * Y - 
+        omega_i * t) - A_e * omega_e * cos(k_e * X + l_e * 
+        Y - omega_e * t + phi) - (A_i * omega_i * cos(k_i * 
+        X + l_i * Y - omega_i * t) * psi_e + A_e * omega_e * 
+        cos(k_e * X + l_e * Y - omega_e * t + phi) * psi_i)
+    E_exp <- psi_r^2
+    E_per <- abs(dpsi_r_dt)
+    T_matrix <- matrix(t, nrow = nrow(X), ncol = ncol(X))
+    par(mfrow = c(1, 2), mar = c(2, 2, 3, 1))
+    scatter3D(x = as.vector(X), y = as.vector(T_matrix), 
+        z = as.vector(psi_r), colvar = as.vector(E_exp), 
+        pch = 20, cex = 0.5, main = expression(paste("Experience Tunnel (", 
+            psi[r], ")")), xlab = "X", ylab = "Time (t)", 
+        zlab = "ψᵣ", phi = 25, theta = 35, colkey = list(side = 4, 
+            length = 0.5, width = 0.5), clim = c(0, max(E_exp)))
+    scatter3D(x = as.vector(X), y = as.vector(T_matrix), 
+        z = as.vector(dpsi_r_dt), colvar = as.vector(E_per), 
+        pch = 20, cex = 0.5, main = expression(paste("Perception Tunnel (", 
+            partialdiff(psi[r], t), ")")), xlab = "X", ylab = "Time (t)", 
+        zlab = "∂ψᵣ/∂t", phi = 25, theta = 35, colkey = list(side = 4, 
+            length = 0.5, width = 0.5), clim = c(0, max(E_per)))
+    mtext(paste("Dual 4D Holographic Consciousness — t =", 
+        round(t, 2)), side = 3, outer = TRUE, line = -2, 
+        cex = 1.2)
+}
+## R version 4.5.1 (2025-06-13 ucrt)
+## Platform: x86_64-w64-mingw32/x64
+## Other packages: animation 2.8, plot3D 1.4.2</code></pre></div>
+	<script src="js/Rplot.js"></script>
+<!-- highlight R code -->
+
+</body>
+</html>
