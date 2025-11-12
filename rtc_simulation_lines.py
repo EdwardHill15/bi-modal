@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from matplotlib import cm
 import time
 
-st.title("Animated Interactive Dual Holographic Energy Tubes with Lines")
+st.title("Animated Interactive Dual Holographic Energy Tubes with Lines and Distinct Colors")
 
 # Sidebar parameters
 A_i = st.sidebar.slider("A_i (Amplitude intrinsic)", 0.1, 2.0, 1.0)
@@ -31,8 +31,11 @@ plot_placeholder = st.empty()
 num_frames = 40
 T_seq = np.linspace(0, 2 * np.pi, num_frames)
 
-viridis = cm.get_cmap('viridis')
-plasma = cm.get_cmap('plasma')
+# Use clearly distinct colormaps for differentiation
+# For Experience: "cividis" (yellow-blue)
+# For Perception: "cool" (cyan-magenta)
+cividis = cm.get_cmap('cividis')
+cool = cm.get_cmap('cool')
 
 def compute_wave(t):
     X, Y = np.meshgrid(x, y)
@@ -47,13 +50,8 @@ def compute_wave(t):
     E_per = np.abs(dpsi_r_dt)
     return X, Y, E_exp, E_per
 
-def color_line(Z, cmap):
-    norm = (Z - Z.min()) / (Z.max() - Z.min())
-    return [f'rgb{tuple(int(c*255) for c in cmap(val)[:3])}' for val in norm]
-
 def make_lines_trace(X, Y, Z, colors, name):
     traces = []
-    # We create lines along rows (i.e., y fixed) for better visualization
     for i in range(X.shape[0]):
         traces.append(go.Scatter3d(
             x=X[i, :],
@@ -61,26 +59,30 @@ def make_lines_trace(X, Y, Z, colors, name):
             z=Z[i, :],
             mode='lines',
             line=dict(color=colors[i], width=4),
-            name=name if i==0 else None,  # Show legend only once
-            showlegend=(i==0)
+            name=name if i == 0 else None,
+            showlegend=(i == 0)
         ))
     return traces
+
+def map_colors_line(Z, cmap):
+    # Map the average of each line to a distinct color in the colormap
+    colors = []
+    for i in range(Z.shape[0]):
+        avg_val = np.mean(Z[i, :])
+        norm_val = (avg_val - np.min(Z)) / (np.max(Z) - np.min(Z))
+        rgb = tuple(int(c*255) for c in cmap(norm_val)[:3])
+        colors.append(f'rgb{rgb}')
+    return colors
 
 if animate:
     for t in T_seq:
         X, Y, E_exp, E_per = compute_wave(t)
-        # Color by average line value for each line (row)
-        exp_colors = []
-        per_colors = []
-        for i in range(n_lines):
-            exp_colors.append(tuple(int(c*255) for c in viridis(np.mean(E_exp[i,:]))[:3]))
-            per_colors.append(tuple(int(c*255) for c in plasma(np.mean(E_per[i,:]))[:3]))
-        exp_colors_str = [f'rgb{c}' for c in exp_colors]
-        per_colors_str = [f'rgb{c}' for c in per_colors]
+        exp_colors = map_colors_line(E_exp, cividis)
+        per_colors = map_colors_line(E_per, cool)
 
         fig = go.Figure()
-        fig.add_traces(make_lines_trace(X, Y, E_exp, exp_colors_str, 'Experience ψr²'))
-        fig.add_traces(make_lines_trace(X, Y, E_per, per_colors_str, 'Perception |∂ψr/∂t|'))
+        fig.add_traces(make_lines_trace(X, Y, E_exp, exp_colors, 'Experience ψr²'))
+        fig.add_traces(make_lines_trace(X, Y, E_per, per_colors, 'Perception |∂ψr/∂t|'))
 
         fig.update_layout(
             scene=dict(
@@ -89,23 +91,18 @@ if animate:
                 zaxis_title='Amplitude / Energy'
             ),
             height=700,
-            margin=dict(l=0,r=0,b=0,t=30)
+            margin=dict(l=0, r=0, b=0, t=30)
         )
         plot_placeholder.plotly_chart(fig, use_container_width=True)
         time.sleep(frame_delay / 1000)
 else:
     X, Y, E_exp, E_per = compute_wave(T_seq[0])
-    exp_colors = []
-    per_colors = []
-    for i in range(n_lines):
-        exp_colors.append(tuple(int(c*255) for c in viridis(np.mean(E_exp[i,:]))[:3]))
-        per_colors.append(tuple(int(c*255) for c in plasma(np.mean(E_per[i,:]))[:3]))
-    exp_colors_str = [f'rgb{c}' for c in exp_colors]
-    per_colors_str = [f'rgb{c}' for c in per_colors]
+    exp_colors = map_colors_line(E_exp, cividis)
+    per_colors = map_colors_line(E_per, cool)
 
     fig = go.Figure()
-    fig.add_traces(make_lines_trace(X, Y, E_exp, exp_colors_str, 'Experience ψr²'))
-    fig.add_traces(make_lines_trace(X, Y, E_per, per_colors_str, 'Perception |∂ψr/∂t|'))
+    fig.add_traces(make_lines_trace(X, Y, E_exp, exp_colors, 'Experience ψr²'))
+    fig.add_traces(make_lines_trace(X, Y, E_per, per_colors, 'Perception |∂ψr/∂t|'))
 
     fig.update_layout(
         scene=dict(
@@ -114,6 +111,6 @@ else:
             zaxis_title='Amplitude / Energy'
         ),
         height=700,
-        margin=dict(l=0,r=0,b=0,t=30)
+        margin=dict(l=0, r=0, b=0, t=30)
     )
     plot_placeholder.plotly_chart(fig, use_container_width=True)
