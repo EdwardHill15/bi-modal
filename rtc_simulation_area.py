@@ -22,12 +22,14 @@ n_lines = 30
 x = np.linspace(-np.pi, np.pi, n_lines)
 y = np.linspace(-np.pi, np.pi, n_lines)
 
+# Animation controls
 animate = st.sidebar.checkbox("Animate Wave", value=True)
 frame_delay = st.sidebar.slider("Animation speed (ms per frame)", 50, 1000, 200)
 plot_placeholder = st.empty()
 num_frames = 40
 T_seq = np.linspace(0, 2 * np.pi, num_frames)
 
+# Colormaps for distinction
 cividis = cm.get_cmap('cividis')
 cool = cm.get_cmap('cool')
 
@@ -55,32 +57,29 @@ def map_colors_line(Z, cmap):
 
 def make_filled_surface_lines_traces(X, Y, Z, colors, name, zbase=0):
     traces = []
-    # For each line (row), create a surface between line curve and base plane filled with color
     for i in range(X.shape[0]):
         xi = X[i, :]
         yi = Y[i, :]
         zi = Z[i, :]
-        # Construct a closed polygon by "going out" on the curve then back on the base plane
+        # Create vertices for mesh: line and base
         xs = np.concatenate([xi, xi[::-1]])
         ys = np.concatenate([yi, yi[::-1]])
         zs = np.concatenate([zi, np.full_like(zi, zbase)])
 
-        # Use Scatter3d trace with mode='none' to create closed polygon fill workaround
         traces.append(go.Mesh3d(
             x=xs,
             y=ys,
             z=zs,
             color=colors[i],
             opacity=0.4,
-            name=name if i==0 else None,
+            name=name if i == 0 else None,
             showscale=False,
             alphahull=0,
             flatshading=True,
             hoverinfo='skip',
-            showlegend=(i==0)
+            showlegend=(i == 0)
         ))
 
-        # Add line on top for clarity
         traces.append(go.Scatter3d(
             x=xi,
             y=yi,
@@ -90,7 +89,6 @@ def make_filled_surface_lines_traces(X, Y, Z, colors, name, zbase=0):
             showlegend=False
         ))
     return traces
-
 
 if animate:
     for t in T_seq:
@@ -111,7 +109,7 @@ if animate:
             height=700,
             margin=dict(l=0, r=0, b=0, t=30)
         )
-        plot_placeholder.plotly_chart(fig, use_container_width=True)
+        plot_placeholder.plotly_chart(fig, width='stretch')
         time.sleep(frame_delay / 1000)
 else:
     X, Y, E_exp, E_per = compute_wave(T_seq[0])
@@ -131,4 +129,5 @@ else:
         height=700,
         margin=dict(l=0, r=0, b=0, t=30)
     )
-    plot_placeholder.plotly_chart(fig, use_container_width=True)
+    plot_placeholder.plotly_chart(fig, width='stretch')
+

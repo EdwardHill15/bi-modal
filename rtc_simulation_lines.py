@@ -1,115 +1,87 @@
 import streamlit as st
 import numpy as np
-import pandas as pd
 import plotly.graph_objects as go
-from matplotlib import cm
-import time
 
-st.title("Animated Interactive Dual Holographic Energy Tubes with Lines")
+st.title("Experience Resonance and Perception Wavefunctions Animation")
 
-# Sidebar parameters
-A_i = st.sidebar.slider("A_i (Amplitude intrinsic)", 0.1, 2.0, 1.0)
-A_e = st.sidebar.slider("A_e (Amplitude extrinsic)", 0.1, 2.0, 0.8)
-k_i = st.sidebar.slider("k_i (Wave vector intrinsic)", 0.1, 5.0, 2.0)
-k_e = st.sidebar.slider("k_e (Wave vector extrinsic)", 0.1, 5.0, 2.5)
-l_i = st.sidebar.slider("l_i (Wave vector intrinsic)", 0.1, 5.0, 1.5)
-l_e = st.sidebar.slider("l_e (Wave vector extrinsic)", 0.1, 5.0, 1.8)
-omega_i = st.sidebar.slider("ω_i (Angular frequency intrinsic)", 0.1, 5.0, 3.0)
-omega_e = st.sidebar.slider("ω_e (Angular frequency extrinsic)", 0.1, 5.0, 2.7)
-phi = st.sidebar.slider("Phase shift φ (radians)", 0.0, 2*np.pi, np.pi / 4)
+# Controls
+num_external_waves = st.sidebar.slider("Number of External Waves", 1, 10, 3)
+A_i = st.sidebar.slider("Intrinsic amplitude A_i", 0.1, 2.0, 1.0)
+k_i = st.sidebar.slider("Intrinsic wave number k_i", 0.1, 5.0, 2.0)
+omega_i = st.sidebar.slider("Intrinsic angular frequency ω_i", 0.1, 5.0, 3.0)
+animation_running = st.sidebar.checkbox("Play Animation", value=False)
+animation_fps = st.sidebar.slider("Animation FPS", 1, 30, 10)
 
-# Spatial grid resolution for lines
-n_lines = 30
-x = np.linspace(-np.pi, np.pi, n_lines)
-y = np.linspace(-np.pi, np.pi, n_lines)
+# External waves params fixed for demo
+np.random.seed(42)
+A_e = np.linspace(0.5, 1.0, num_external_waves)
+k_e = np.linspace(1.5, 3.0, num_external_waves)
+omega_e = np.linspace(2.0, 4.0, num_external_waves)
+phi_e = np.linspace(0, np.pi, num_external_waves)
 
-# Animation control
-animate = st.sidebar.checkbox("Animate Wave", value=True)
-frame_delay = st.sidebar.slider("Animation speed (ms per frame)", 50, 1000, 200)
+x = np.linspace(-np.pi, np.pi, 500)
+num_frames = 60
+T_seq = np.linspace(0, 2*np.pi, num_frames)
 
-plot_placeholder = st.empty()
-num_frames = 40
-T_seq = np.linspace(0, 2 * np.pi, num_frames)
+if "frame_idx" not in st.session_state:
+    st.session_state.frame_idx = 0
 
-# Choose distinct colormaps
-cividis = cm.get_cmap('cividis')
-cool = cm.get_cmap('cool')
-
-def compute_wave(t):
-    X, Y = np.meshgrid(x, y)
-    psi_i = A_i * np.sin(k_i * X + l_i * Y - omega_i * t)
-    psi_e = A_e * np.sin(k_e * X + l_e * Y - omega_e * t + phi)
-    psi_r = psi_i + psi_e + psi_i * psi_e
+def compute_waves(t):
+    psi_i = A_i * np.sin(k_i * x - omega_i * t)
+    psi_e_sum = np.zeros_like(x)
+    for i in range(num_external_waves):
+        psi_e_sum += A_e[i] * np.sin(k_e[i] * x - omega_e[i] * t + phi_e[i])
+    psi_r = psi_i + psi_e_sum + psi_i * psi_e_sum
     E_exp = psi_r ** 2
-    dpsi_r_dt = (-A_i * omega_i * np.cos(k_i * X + l_i * Y - omega_i * t)
-                 - A_e * omega_e * np.cos(k_e * X + l_e * Y - omega_e * t + phi)
-                 - (A_i * omega_i * np.cos(k_i * X + l_i * Y - omega_i * t) * psi_e +
-                    A_e * omega_e * np.cos(k_e * X + l_e * Y - omega_e * t + phi) * psi_i))
+    
+    dpsi_i_dt = - A_i * omega_i * np.cos(k_i * x - omega_i * t)
+    dpsi_e_sum_dt = np.zeros_like(x)
+    for i in range(num_external_waves):
+        dpsi_e_sum_dt += - A_e[i] * omega_e[i] * np.cos(k_e[i] * x - omega_e[i] * t + phi_e[i])
+    dpsi_r_dt = dpsi_i_dt + dpsi_e_sum_dt + dpsi_i_dt * psi_e_sum + dpsi_e_sum_dt * psi_i
     E_per = np.abs(dpsi_r_dt)
-    return X, Y, E_exp, E_per
+    return psi_i, psi_e_sum, E_exp, E_per
 
-def map_colors_line(Z, cmap):
-    colors = []
-    for i in range(Z.shape[0]):
-        avg_val = np.mean(Z[i, :])
-        norm_val = (avg_val - np.min(Z)) / (np.max(Z) - np.min(Z))
-        rgb = tuple(int(c*255) for c in cmap(norm_val)[:3])
-        colors.append(f'rgb{rgb}')
-    return colors
+# Compute current frame's waves
+t = T_seq[st.session_state.frame_idx]
+psi_i, psi_e_sum, E_exp, E_per = compute_waves(t)
 
-def make_lines_trace(X, Y, Z, colors, name):
-    traces = []
-    for i in range(X.shape[0]):
-        traces.append(go.Scatter3d(
-            x=X[i, :],
-            y=Y[i, :],
-            z=Z[i, :],
-            mode='lines',
-            line=dict(color=colors[i], width=4),
-            name=name if i == 0 else None,
-            showlegend=(i == 0)
-        ))
-    return traces
+# Setup two columns for side by side plots
+col1, col2 = st.columns(2)
 
-if animate:
-    for t in T_seq:
-        X, Y, E_exp, E_per = compute_wave(t)
-        exp_colors = map_colors_line(E_exp, cividis)
-        per_colors = map_colors_line(E_per, cool)
+with col1:
+    fig_exp = go.Figure()
+    fig_exp.add_trace(go.Scatter(x=x, y=psi_i, mode='lines', name='Intrinsic Wave', line=dict(color='cyan', dash='dash')))
+    for i in range(num_external_waves):
+        ext_wave = A_e[i] * np.sin(k_e[i] * x - omega_e[i] * t + phi_e[i])
+        fig_exp.add_trace(go.Scatter(x=x, y=ext_wave, mode='lines', name=f'External Wave {i+1}', 
+                                     line=dict(color='magenta', dash='dot'), opacity=0.5))
+    fig_exp.add_trace(go.Scatter(x=x, y=E_exp, mode='lines', name='Resonance Experience Wave', line=dict(color='blue')))
+    fig_exp.update_layout(title=f'Experience Wave Patterns at t={t:.2f}', yaxis_range=[min(np.min(E_exp), np.min(psi_i))*1.2, np.max(E_exp)*1.2])
+    st.plotly_chart(fig_exp, use_container_width=True)
 
-        fig = go.Figure()
-        fig.add_traces(make_lines_trace(X, Y, E_exp, exp_colors, 'Experience ψr²'))
-        fig.add_traces(make_lines_trace(X, Y, E_per, per_colors, 'Perception |∂ψr/∂t|'))
+with col2:
+    fig_per = go.Figure()
+    fig_per.add_trace(go.Scatter(x=x, y=E_per, mode='lines', name='Perception Wavefunction (Derivative)', line=dict(color='orange')))
+    fig_per.update_layout(title=f'Perception Wavefunction at t={t:.2f}', yaxis_range=[0, np.max(E_per)*1.1])
+    st.plotly_chart(fig_per, use_container_width=True)
 
-        fig.update_layout(
-            scene=dict(
-                xaxis_title='X (spatial)',
-                yaxis_title='Y (spatial)',
-                zaxis_title='Amplitude / Energy'
-            ),
-            height=700,
-            margin=dict(l=0, r=0, b=0, t=30)
-        )
-        plot_placeholder.plotly_chart(fig, use_container_width=True)
-        time.sleep(frame_delay / 1000)
-else:
-    X, Y, E_exp, E_per = compute_wave(T_seq[0])
-    exp_colors = map_colors_line(E_exp, cividis)
-    per_colors = map_colors_line(E_per, cool)
+# Update frame index if animation is playing
+if animation_running:
+    st.session_state.frame_idx = (st.session_state.frame_idx + 1) % num_frames
+    # Rerun script after delay to animate
+    st.experimental_rerun()
 
-    fig = go.Figure()
-    fig.add_traces(make_lines_trace(X, Y, E_exp, exp_colors, 'Experience ψr²'))
-    fig.add_traces(make_lines_trace(X, Y, E_per, per_colors, 'Perception |∂ψr/∂t|'))
 
-    fig.update_layout(
-        scene=dict(
-            xaxis_title='X (spatial)',
-            yaxis_title='Y (spatial)',
-            zaxis_title='Amplitude / Energy'
-        ),
-        height=700,
-        margin=dict(l=0, r=0, b=0, t=30)
-    )
-    plot_placeholder.plotly_chart(fig, use_container_width=True)
+
+
+
+
+
+
+
+
+
+
 
 
