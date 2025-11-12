@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from matplotlib import cm
 import time
 
-st.title("Animated Interactive Dual Holographic Energy Tubes with Lines and Distinct Colors")
+st.title("Animated Dual Holographic Energy Tubes with Filled Areas Under Lines")
 
 # Sidebar parameters
 A_i = st.sidebar.slider("A_i (Amplitude intrinsic)", 0.1, 2.0, 1.0)
@@ -23,7 +23,6 @@ n_lines = 30
 x = np.linspace(-np.pi, np.pi, n_lines)
 y = np.linspace(-np.pi, np.pi, n_lines)
 
-# Animation control
 animate = st.sidebar.checkbox("Animate Wave", value=True)
 frame_delay = st.sidebar.slider("Animation speed (ms per frame)", 50, 1000, 200)
 
@@ -31,9 +30,7 @@ plot_placeholder = st.empty()
 num_frames = 40
 T_seq = np.linspace(0, 2 * np.pi, num_frames)
 
-# Use clearly distinct colormaps for differentiation
-# For Experience: "cividis" (yellow-blue)
-# For Perception: "cool" (cyan-magenta)
+# Colormaps chosen for strong distinction
 cividis = cm.get_cmap('cividis')
 cool = cm.get_cmap('cool')
 
@@ -50,22 +47,7 @@ def compute_wave(t):
     E_per = np.abs(dpsi_r_dt)
     return X, Y, E_exp, E_per
 
-def make_lines_trace(X, Y, Z, colors, name):
-    traces = []
-    for i in range(X.shape[0]):
-        traces.append(go.Scatter3d(
-            x=X[i, :],
-            y=Y[i, :],
-            z=Z[i, :],
-            mode='lines',
-            line=dict(color=colors[i], width=4),
-            name=name if i == 0 else None,
-            showlegend=(i == 0)
-        ))
-    return traces
-
 def map_colors_line(Z, cmap):
-    # Map the average of each line to a distinct color in the colormap
     colors = []
     for i in range(Z.shape[0]):
         avg_val = np.mean(Z[i, :])
@@ -74,6 +56,39 @@ def map_colors_line(Z, cmap):
         colors.append(f'rgb{rgb}')
     return colors
 
+def make_filled_lines_traces(X, Y, Z, colors, name):
+    traces = []
+    for i in range(X.shape[0]):
+        # Coordinates for line
+        xs = np.concatenate([X[i, :], X[i, ::-1]])
+        ys = np.concatenate([Y[i, :], Y[i, ::-1]])
+        zs = np.concatenate([Z[i, :], np.zeros_like(Z[i, :])])  # fill down to zero
+
+        # Polygon fill: 'toself' fill mode for area under line
+        traces.append(go.Scatter3d(
+            x=xs,
+            y=ys,
+            z=zs,
+            mode='lines',
+            fill='toself',
+            fillcolor=colors[i],
+            line=dict(color=colors[i], width=2),
+            name=name if i == 0 else None,
+            showlegend=(i == 0),
+            opacity=0.5
+        ))
+
+        # Line on top of area
+        traces.append(go.Scatter3d(
+            x=X[i, :],
+            y=Y[i, :],
+            z=Z[i, :],
+            mode='lines',
+            line=dict(color=colors[i], width=4),
+            showlegend=False
+        ))
+    return traces
+
 if animate:
     for t in T_seq:
         X, Y, E_exp, E_per = compute_wave(t)
@@ -81,8 +96,8 @@ if animate:
         per_colors = map_colors_line(E_per, cool)
 
         fig = go.Figure()
-        fig.add_traces(make_lines_trace(X, Y, E_exp, exp_colors, 'Experience ψr²'))
-        fig.add_traces(make_lines_trace(X, Y, E_per, per_colors, 'Perception |∂ψr/∂t|'))
+        fig.add_traces(make_filled_lines_traces(X, Y, E_exp, exp_colors, 'Experience ψr²'))
+        fig.add_traces(make_filled_lines_traces(X, Y, E_per, per_colors, 'Perception |∂ψr/∂t|'))
 
         fig.update_layout(
             scene=dict(
@@ -101,8 +116,8 @@ else:
     per_colors = map_colors_line(E_per, cool)
 
     fig = go.Figure()
-    fig.add_traces(make_lines_trace(X, Y, E_exp, exp_colors, 'Experience ψr²'))
-    fig.add_traces(make_lines_trace(X, Y, E_per, per_colors, 'Perception |∂ψr/∂t|'))
+    fig.add_traces(make_filled_lines_traces(X, Y, E_exp, exp_colors, 'Experience ψr²'))
+    fig.add_traces(make_filled_lines_traces(X, Y, E_per, per_colors, 'Perception |∂ψr/∂t|'))
 
     fig.update_layout(
         scene=dict(
@@ -114,3 +129,4 @@ else:
         margin=dict(l=0, r=0, b=0, t=30)
     )
     plot_placeholder.plotly_chart(fig, use_container_width=True)
+
